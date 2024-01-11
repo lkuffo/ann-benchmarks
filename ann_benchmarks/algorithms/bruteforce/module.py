@@ -5,7 +5,7 @@ from ...distance import compute_distance, metrics as pd
 from ..base.module import BaseANN
 
 class BruteForce(BaseANN):
-    def __init__(self, metric):
+    def __init__(self, metric, args):
         if metric not in ("angular", "euclidean", "hamming"):
             raise NotImplementedError("BruteForce doesn't support metric %s" % metric)
         self._metric = metric
