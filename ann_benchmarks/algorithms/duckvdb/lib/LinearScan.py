@@ -6,7 +6,7 @@ class LinearScan(BaseIndex):
     def __init__(self, cursor, schema, vector_table, metric):
         super().__init__(cursor, schema, vector_table, metric, "LinearScan")
 
-    def build(self) -> None:
+    def build(self, dimensions, **kwargs) -> None:
         print('Linear-Scan | Not neccessary to create index...')
 
     def query(self, q_vector, dimensions, k, debug) -> [float, list]:

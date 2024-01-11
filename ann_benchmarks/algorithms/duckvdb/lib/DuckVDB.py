@@ -6,8 +6,9 @@ from BaseIndex import BaseIndex
 
 INDEXES = {
     "linear-scan": LinearScan,
-    "lsh": RPLSH
+    "rplsh": RPLSH
 }
+
 
 class DuckVDB:
     def __init__(self, db_name, metric, index="linear-scan"):
@@ -40,24 +41,25 @@ class DuckVDB:
             """
         )
 
-    def create_index(self, **kwargs):
-        self.Index.build(**kwargs)
+    def create_index(self, dimensions, **kwargs):
+        self.Index.build(dimensions, **kwargs)
 
     def set_cores(self, cores):
         self.cursor.execute(f"PRAGMA threads={cores};")
 
-    def populate_vector_table(self, data, dimensions):
+    def populate_vector_table(self, data, dimensions, debug_vectors=False):
         self.cursor.execute(
             """
             INSERT INTO mydb.array_table (id, vector) SELECT id, vector FROM data;
             """
         )
 
-        self.cursor.execute(
-            f"""
-             ALTER TABLE mydb.array_table ALTER vector TYPE FLOAT[{dimensions}];
-             """
-        )
+        if not debug_vectors:  # DuckDB does not have conversion from Array to DataFrame
+            self.cursor.execute(
+                f"""
+                 ALTER TABLE mydb.array_table ALTER vector TYPE FLOAT[{dimensions}];
+                 """
+            )
         print("Data Finished Loading")
 
     def execute_query(self, query, dimensions, k, bench=False, repetition=1, debug=False):

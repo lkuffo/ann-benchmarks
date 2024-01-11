@@ -8,13 +8,14 @@ if __name__ == "__main__":
     db_fn = f'./duckvdb.duckdb'
     CORES = 8
     DIMENSIONS = 300
-    DATASET_SIZE = 210000
+    DATASET_SIZE = 100
     METRIC = 'cosine'  # euclidean
     K = 10
     BENCH = False
     REPETITION = 1
     DEBUG = False
-    INDEX = 'lsh'
+    INDEX = 'rplsh'
+    SHOW_VECTORS = True
 
     try:
         # Setup duckdb
@@ -25,10 +26,10 @@ if __name__ == "__main__":
         duckvdb.set_cores(CORES)
         duckvdb.create_vector_table()
         df = DataGenerator().generate(DATASET_SIZE, DIMENSIONS)
-        duckvdb.populate_vector_table(df, DIMENSIONS)
+        duckvdb.populate_vector_table(df, DIMENSIONS, SHOW_VECTORS)
 
         # Create Index
-        duckvdb.create_index()
+        duckvdb.create_index(DIMENSIONS)
 
         # Generate Query Vector
         QUERY_VECTOR = DataGenerator().generate_query(DIMENSIONS)

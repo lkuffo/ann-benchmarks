@@ -1,16 +1,17 @@
 from abc import ABC, abstractmethod
+import duckdb
 
 
 class BaseIndex(ABC):
     def __init__(self, cursor, schema, vector_table, metric, name="BaseIndex"):
-        self.cursor = cursor
-        self.schema = schema
-        self.vector_table = vector_table
-        self.metric = metric
-        self.name = name
+        self.cursor: duckdb.DuckDBPyConnection = cursor
+        self.schema: str = schema
+        self.vector_table: str = vector_table
+        self.metric: str = metric
+        self.name: str = name
 
     @abstractmethod
-    def build(self, **kwargs) -> None:
+    def build(self, dimensions, **kwargs) -> None:
         pass
 
     @abstractmethod
