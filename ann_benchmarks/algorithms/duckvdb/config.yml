@@ -1,0 +1,13 @@
+float:
+  any:
+  - base_args: ['@metric']
+    constructor: DuckVDB
+    disabled: false
+    docker_tag: ann-benchmarks-duckvdb
+    module: ann_benchmarks.algorithms.duckvdb
+    name: duckvdb
+    run_groups:
+      ONE:
+        args:
+          method: ['linear-scan']
+        query_args: [[10]]
