@@ -1,8 +1,8 @@
 import duckdb
 import datetime
-from RPLSH import RPLSH
-from LinearScan import LinearScan
-from BaseIndex import BaseIndex
+from .RPLSH import RPLSH
+from .LinearScan import LinearScan
+from .BaseIndex import BaseIndex
 
 INDEXES = {
     "linear-scan": LinearScan,
@@ -10,13 +10,14 @@ INDEXES = {
 }
 
 
-class DuckVDB:
-    def __init__(self, db_name, metric, index="linear-scan"):
+class DuckVDBLib:
+    def __init__(self, db_name, metric, index="linear-scan", debug=False):
         self.cursor = duckdb.connect(db_name)
         self.metric = metric
         self.vector_table_name = 'array_table'
         self.schema_name = 'mydb'
-        self.Index: BaseIndex = INDEXES[index](self.cursor, self.schema_name, self.vector_table_name, self.metric)
+        self.debug = debug
+        self.Index: BaseIndex = INDEXES[index](self.cursor, self.schema_name, self.vector_table_name, self.metric, self.debug)
 
     def create_vector_table(self):
         print('Loading DB...')
@@ -47,27 +48,29 @@ class DuckVDB:
     def set_cores(self, cores):
         self.cursor.execute(f"PRAGMA threads={cores};")
 
-    def populate_vector_table(self, data, dimensions, debug_vectors=False):
+    def populate_vector_table(self, data, dimensions, use_vectors=False):
         self.cursor.execute(
-            """
-            INSERT INTO mydb.array_table (id, vector) SELECT id, vector FROM data;
+            f"""
+            INSERT INTO {self.schema_name}.{self.vector_table_name} (id, vector) SELECT id, vector FROM data;
             """
         )
 
-        if not debug_vectors:  # DuckDB does not have conversion from Array to DataFrame
+        if use_vectors:  # DuckDB does not have conversion from Array to DataFrame
+            print("Casting...")
             self.cursor.execute(
                 f"""
-                 ALTER TABLE mydb.array_table ALTER vector TYPE FLOAT[{dimensions}];
+                 ALTER TABLE {self.schema_name}.{self.vector_table_name} ALTER vector TYPE FLOAT[{dimensions}];
                  """
             )
         print("Data Finished Loading")
 
-    def execute_query(self, query, dimensions, k, bench=False, repetition=1, debug=False):
-        print("Querying...")
+    def execute_query(self, query, dimensions, k, bench=False, repetition=1):
+        if self.debug:
+            print("Querying...")
         total_ms = 0
         res = None
         for _ in range(repetition):
-            query_time, res = self.Index.query(query, dimensions, k, debug)
+            query_time, res = self.Index.query(query, dimensions, k)
             total_ms += query_time
         if bench:
             print('Query took in average %.2f ms' % (total_ms / repetition))

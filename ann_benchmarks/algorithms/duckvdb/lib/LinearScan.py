@@ -1,17 +1,17 @@
-from BaseIndex import BaseIndex
+from .BaseIndex import BaseIndex
 import datetime
 
 
 class LinearScan(BaseIndex):
-    def __init__(self, cursor, schema, vector_table, metric):
-        super().__init__(cursor, schema, vector_table, metric, "LinearScan")
+    def __init__(self, cursor, schema, vector_table, metric, debug):
+        super().__init__(cursor, schema, vector_table, metric, debug, "LinearScan")
 
     def build(self, dimensions, **kwargs) -> None:
         print('Linear-Scan | Not neccessary to create index...')
 
-    def query(self, q_vector, dimensions, k, debug) -> [float, list]:
+    def query(self, q_vector, dimensions, k) -> [float, list]:
         query: str = ""
-        if self.metric == 'cosine':
+        if self.metric == 'cosine' or self.metric == 'angular':
             query = f"""
                 SELECT id FROM {self.schema}.{self.vector_table} ORDER BY array_cosine_similarity(
                     CAST (? AS FLOAT[{dimensions}]),
@@ -32,7 +32,7 @@ class LinearScan(BaseIndex):
         )
         toc = datetime.datetime.now()
         bench = (toc - tic).total_seconds() * 1000
-        if debug:
+        if self.debug:
             print(query)
             print('Took {} ms'.format(bench))
         return bench, [id[0] for id in res.fetchall()]

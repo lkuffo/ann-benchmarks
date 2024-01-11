@@ -1,112 +1,52 @@
 import subprocess
 import sys
 
-import duckdb
 import pandas as pd
-import datetime
 
 from ..base.module import BaseANN
+from .lib.DuckVDB import DuckVDBLib
 
 
 class DuckVDB(BaseANN):
     def __init__(self, metric, args):
-        self._metric = metric
-        self._cur = None
+        self.metric = metric
+        self.duckvdb: DuckVDBLib = None
         if metric not in ['euclidean', 'angular']:
-            raise RuntimeError(f"unknown metric {self._metric}")
+            raise RuntimeError(f"unknown metric {self.metric}")
         self.index = args.get('method')
+        if self.index not in ['rplsh', 'linear-scan']:
+            raise RuntimeError(f"unknown index {self.metric}")
         self.name = 'duckvdb_' + self.index
+        if self.index == 'rplsh':
+            self.lsh_hash_distance = args.get('rplsh_hash_distance', 15)
 
     def fit(self, X):
-        db_fn = './duckvdb.duckdb'
-        cursor = duckdb.connect(db_fn)
+        dimensions = X.shape[1]
 
-        print('Loading DB...')
-        cursor.execute(
-            """
-                CREATE SCHEMA IF NOT EXISTS mydb;
-            """
-        )
+        duckvdb = DuckVDBLib('./duckvdb.duckdb', self.metric, self.index, False)
 
-        cursor.execute(
-            """
-                DROP TABLE IF EXISTS mydb.array_table;
-            """
-        )
+        duckvdb.create_vector_table()
 
-        print("Creating structures...")
-        cursor.execute(
-            f"""
-            CREATE TABLE mydb.array_table (
-                id INT,
-                vector FLOAT[]
-            );
-            """
-        )
-
-        print("Copying data...")
         tmp_df = pd.DataFrame({'id': range(len(X)), 'vector': list(X)})
 
-        print("Inserting data...")
-        cursor.execute(
-            """
-            INSERT INTO mydb.array_table (id, vector) SELECT id, vector FROM tmp_df;
-            """
-        )
-        print("Casting...")
-        cursor.execute(
-            f"""
-                ALTER TABLE mydb.array_table ALTER vector TYPE FLOAT[{X.shape[1]}];
-            """
-        )
+        # TODO: For some reason there is a bug when using vectors in RP-LSH
+        use_vectors = self.index == 'linear-scan'
 
-        print("Creating index...")
-        if self.index == 'lsh':
-            # Alter table to add index
-            pass
+        duckvdb.populate_vector_table(tmp_df, dimensions, use_vectors)
+
+        # Create Index
+        if self.index == 'rplsh':
+            duckvdb.create_index(dimensions, lsh_distance_threshold=self.lsh_hash_distance)
         elif self.index == 'linear-scan':
-            # Nothing to do
-            pass
-        print("Done setup!")
-        self._cur = cursor
+            duckvdb.create_index(dimensions)
+
+        self.duckvdb = duckvdb
 
     def set_query_arguments(self, ef_search):
         pass
 
     def query(self, v, n):
-        if self.index == 'linear-scan':
-            query = self.get_linear_scan_query(v, n)
-            # tic = datetime.datetime.now()
-            res = self._cur.execute(
-                query,
-                [v]
-            )
-            # tac = datetime.datetime.now()
-            # tictac = tac - tic
-            # bench = tictac.total_seconds() * 1000
-            # print(bench)
-            return [id[0] for id in res.fetchall()]
-        elif self.index == 'lsh':
-            raise RuntimeError("Not implemented yet")
-
-    def get_linear_scan_query(self, v, n):
-        if self._metric == "angular":
-            query = f"""
-                SELECT id FROM mydb.array_table ORDER BY array_cosine_similarity(
-                    CAST (? AS FLOAT[{len(v)}]),
-                    vector
-                ) DESC LIMIT {n};
-            """
-        elif self._metric == "euclidean":
-            query = f"""
-                SELECT id FROM mydb.array_table ORDER BY array_distance(
-                    CAST (? AS FLOAT[{len(v)}]),
-                    vector
-                ) ASC LIMIT {n};
-            """
-        else:
-            raise RuntimeError(f"unknown metric {self._metric}")
-        return query
+        return self.duckvdb.execute_query(v, len(v), n, False, 1)
 
     def __str__(self):
-        return f"DuckVDB(index={self.index})"
+        return self.duckvdb.Index.describe()

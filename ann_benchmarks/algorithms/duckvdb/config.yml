@@ -7,7 +7,12 @@ float:
     module: ann_benchmarks.algorithms.duckvdb
     name: duckvdb
     run_groups:
-      ONE:
+      LSH:
         args:
-          method: ['linear-scan']
+          method: ['rplsh']
+          lsh_hash_distance: [16, 20, 24, 32]
         query_args: [[10]]
+#      LINEARSCAN:
+#        args:
+#          method: [ 'linear-scan' ]
+#        query_args: [ [ 20 ] ]
